@@ -8,16 +8,47 @@ export default function SignIn() {
   const login = useAuthStore(state => state.login);
   const { t } = useTranslation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login - in a real app, this would make an API call
-    login({
-      id: '1',
-      name: 'Ahmed Hassan',
-      email: 'ahmed@example.com',
-      tokens: 150
-    });
-    navigate('/dashboard');
+    setError('');
+    setIsLoading(true);
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      login({
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        tokens: data.user.SQ_token
+      });
+
+      localStorage.setItem('token', data.token);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -32,8 +63,10 @@ export default function SignIn() {
             <input
               type="email"
               id="email"
+              name="email"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
               placeholder="you@example.com"
+              required
             />
           </div>
           <div>
@@ -43,8 +76,10 @@ export default function SignIn() {
             <input
               type="password"
               id="password"
+              name="password"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
               placeholder="••••••••"
+              required
             />
           </div>
           <div className="flex items-center justify-between">
@@ -62,11 +97,15 @@ export default function SignIn() {
               {t('auth.forgotPassword')}
             </Link>
           </div>
+          {error && (
+            <div className="text-red-500 text-sm text-center">{error}</div>
+          )}
           <button
             type="submit"
-            className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            className="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            disabled={isLoading}
           >
-            {t('common.signIn')}
+            {isLoading ? 'Signing in...' : t('common.signIn')}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">

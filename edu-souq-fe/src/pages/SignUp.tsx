@@ -1,12 +1,63 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import { useTranslation } from 'react-i18next';
 
 export default function SignUp() {
+  const navigate = useNavigate();
+  const login = useAuthStore(state => state.login);
+  const { t } = useTranslation();
+  
+  const [error, setError] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">Create Your Account</h2>
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={async (e) => {
+          e.preventDefault();
+          setError('');
+          setIsLoading(true);
+
+          const formData = new FormData(e.target as HTMLFormElement);
+          const name = `${formData.get('firstName')} ${formData.get('lastName')}`;
+          const email = formData.get('email') as string;
+          const password = formData.get('password') as string;
+          const password_confirmation = formData.get('confirmPassword') as string;
+
+          try {
+            const response = await fetch('http://localhost:8000/api/auth/register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ name, email, password, password_confirmation }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.errors ? Object.values(data.errors).flat().join('\n') : 
+                data.message || 'Registration failed'
+              );
+            }
+
+            login({
+              id: data.user.id,
+              name: data.user.name,
+              email: data.user.email,
+              tokens: data.user.SQ_token
+            });
+
+            localStorage.setItem('token', data.token);
+            navigate('/dashboard');
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'An error occurred');
+          } finally {
+            setIsLoading(false);
+          }
+        }}>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -15,6 +66,8 @@ export default function SignUp() {
               <input
                 type="text"
                 id="firstName"
+              name="firstName"
+              required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
                 placeholder="John"
               />
@@ -26,6 +79,8 @@ export default function SignUp() {
               <input
                 type="text"
                 id="lastName"
+              name="lastName"
+              required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
                 placeholder="Doe"
               />
@@ -38,6 +93,8 @@ export default function SignUp() {
             <input
               type="email"
               id="email"
+              name="email"
+              required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
               placeholder="you@example.com"
             />
@@ -49,6 +106,9 @@ export default function SignUp() {
             <input
               type="password"
               id="password"
+              name="password"
+              required
+              minLength={8}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
               placeholder="••••••••"
             />
@@ -60,6 +120,8 @@ export default function SignUp() {
             <input
               type="password"
               id="confirmPassword"
+              name="confirmPassword"
+              required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90E2]"
               placeholder="••••••••"
             />
@@ -81,11 +143,15 @@ export default function SignUp() {
               </Link>
             </label>
           </div>
+          {error && (
+            <div className="text-red-500 text-sm text-center whitespace-pre-line">{error}</div>
+          )}
           <button
             type="submit"
-            className="w-full bg-[#4A90E2] text-white py-2 rounded-lg hover:bg-[#4A90E2]/90 transition-colors"
+            className="w-full bg-[#4A90E2] text-white py-2 rounded-lg hover:bg-[#4A90E2]/90 transition-colors disabled:opacity-50"
+            disabled={isLoading}
           >
-            Create Account
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
