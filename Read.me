@@ -1,0 +1,10 @@
+cd edu-souq-fe
+npm install
+npm run dev
+
+cd edu-souq-be
+npm install
+composer update
+php artisan migrate 
+php artisan db:seed
+php artisan serve
